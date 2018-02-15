@@ -1,0 +1,100 @@
+#!/bin/bash
+
+# Symbolically verify a property of an IOC.
+# Usage: check-symbolic <dir> <properties.rkt> <property-name>
+#   (where <dir> was previously constructed by the ./setup script)
+#   The file <properties.rkt> must contain a definition of (property-name)
+
+IOC_PATH="$1"
+PROPERTIES_FILE="$2"
+PROPERTY="$3"
+
+################################################################################
+# Check arguments
+
+if [[ "$IOC_PATH" == "" || "$PROPERTIES_FILE" == "" || "$PROPERTY" == "" ]]; then
+  echo "Usage: $0 path/to/symbolic/db properties.rkt property-name"
+  exit 1
+fi
+
+PRECHECK=ok
+
+function err {
+  echo "ERROR: $1" >&2
+  PRECHECK=fail
+  return 1
+}
+
+function has-prop {
+  F="$1"
+  P="$2"
+  grep "^(define ($P" <$F >/dev/null
+}
+
+[[ -d "$IOC_PATH" ]] || err "$IOC_PATH is not a directory" && \
+  { [[ -f "$IOC_PATH/db.rkt" ]] || err "$IOC_PATH/db.rkt was not found"; }
+[[ -f "$PROPERTIES_FILE" ]] || err "$PROPERTIES_FILE does not exist" && \
+  { has-prop "$PROPERTIES_FILE" "$PROPERTY" || err "property '$PROPERTY' was not found in $PROPERTIES_FILE"; }
+
+if [[ "$PRECHECK" != "ok" ]]; then
+  exit 1
+fi
+
+# Absolute path to symbolic IOC
+pushd "$IOC_PATH" >/dev/null
+IOC_PATH="$(pwd)"
+popd >/dev/null
+
+################################################################################
+# Check
+
+echo
+echo "checking property..."
+echo
+
+F="$(mktemp /tmp/harness.XXXXXX)"
+cat >"$F" <<EOF
+#lang rosette
+
+(require (file "$IOC_PATH/db.rkt"))
+(require (file "$IOC_PATH/arith.rkt"))
+(require (file "$IOC_PATH/explanations.rkt"))
+(require (file "$IOC_PATH/tracing.rkt"))
+(require (file "$IOC_PATH/model-completion.rkt"))
+
+$(cat "$PROPERTIES_FILE")
+
+(define (f)
+  (reset-trace)
+  ($PROPERTY))
+
+(define (prettyprint v)
+  (cond
+    [(term? v) "_"]
+    [(bv? v) (format "~a" (bitvector->integer v))]
+    [(boolean? v) (if v "true" "false")]
+    [(vector? v) (string-append "[" (string-join (map prettyprint (vector->list v)) ", ") "]")]
+    [#t (format "~s" v)]))
+
+(define (show-trace tr)
+  (define indent "")
+  (for/list [(entry tr)]
+    (match entry
+      [(StartProcessing r) (printf "~astart: ~a\n" indent r) (set! indent (string-append indent "  "))]
+      [(EndProcessing r) (set! indent (substring indent 2))]
+      [(SkipProcessing r) (printf "~askipped: ~a\n" indent r)]
+      [(WriteField r f v) #:when (not (equal? f "PACT")) (printf "~a~a.~a = ~a\n" indent r f (prettyprint v))]
+      [_ #f])))
+
+(define cex (verify (f)))
+(cond
+  [(unsat? cex) (printf "everything is ok!\n") (exit 0)]
+  [#t
+    (db-init-symbolic)
+    (evaluate (f) cex)
+    (printf "counterexample:\n~a" (explain-counterexample cex))
+    (printf "log:\n")
+    (show-trace (get-trace (complete cex)))
+    (exit 1)])
+EOF
+exec racket "$F"

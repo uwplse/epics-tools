@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# Construct a symbolic version of an IOC.
+# Usage: setup <path/to/ioc-root> <path/to/st.cmd> <output/dir>
+
+function abspath {
+  if [[ -d "$1" ]]; then
+    pushd "$1" >/dev/null
+    pwd
+    popd >/dev/null
+  else
+    pushd "$(dirname "$1")" >/dev/null
+    echo "$(pwd)/$(basename "$1")"
+    popd >/dev/null
+  fi
+}
+
+HERE="$(abspath "$(dirname "$0")")"
+IOC_ROOT="$1"
+ST_CMD="$2"
+OUT="$3"
+
+if [[ "$IOC_ROOT" == "" || "$ST_CMD" == "" || "$OUT" == "" ]]; then
+  echo "Usage: $0 <path/to/ioc-root> <path/to/st.cmd> <output/path>"
+  echo "NOTE: The path to st.cmd must be relative to the first argument"
+  echo "      or it must be an absolute path."
+  exit 1
+fi
+
+set -e
+
+# Create $OUT if it does not exist, and get its absolute path
+mkdir -p "$OUT"
+OUT="$(abspath "$OUT")"
+
+# Build symbolic db.rkt
+pushd "$IOC_ROOT" >/dev/null
+"$HERE/neutrons" to-rosette <"$ST_CMD" >"$OUT/db.rkt"
+popd >/dev/null
+
+# Copy over other racket sources
+for f in 'env.rkt' 'tracing.rkt' 'dbcore.rkt' 'arith.rkt' 'shell.rkt' 'ishell.rkt' 'explanations.rkt' 'model-completion.rkt'; do
+  ln -f "$HERE/../symbolic/$f" "$OUT/$f"
+done
+
+# Compile to bytecode
+pushd "$OUT" >/dev/null
+  raco make -v 'shell.rkt' 'ishell.rkt'
+popd >/dev/null
+
+# Print final information
+echo "-------------------------------------------------------------"
+echo "Symbolic IOC was created at '$OUT'."

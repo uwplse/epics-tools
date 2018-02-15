@@ -1,0 +1,366 @@
+\documentclass[10pt]{article}
+
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{relsize}
+\usepackage{color}
+\usepackage{microtype}
+\usepackage{times}
+\input{codestyle}
+
+% \|name| or \id{name} denotes math identifiers.
+% This gives us proper kerning on multi-character italicised math identifiers.
+\def\|#1|{\mathid{#1}}
+\newcommand{\mathid}[1]{\ensuremath{\mathit{#1}}}
+
+% \<name> or \codeid{name} denotes computer code identifiers.
+\def\<#1>{\codeid{#1}}
+\newcommand{\codeid}[1]{\ifmmode{\mbox{\smaller\ttfamily{#1}}}\else{\smaller\ttfamily{#1}}\fi}
+
+% help out listings a bit
+\lstdefinelanguage{Rosette}[]{Lisp}{
+   morekeywords={assert,define}}
+
+% a few names
+\newcommand{\examplefile}{\<properties.rkt>}
+
+\title{EPICS Symbolic Interpreter Manual}
+\author{Calvin Loncaric \\ University of Washington}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+This document describes our \emph{symbolic interpreter} for EPICS.%
+\footnote{\url{http://www.aps.anl.gov/epics/}} EPICS is an open-source framework
+for writing distributed control software. An EPICS program consists of one or
+more \emph{IOCs} that interact with hardware devices and communicate with each
+other over a network. Our symbolic interpreter can prove strong properties about
+an individual IOC---for instance, that no bad values are ever written to a
+particular hardware device.
+
+Our symbolic interpreter is especially useful as a \emph{linter} to catch
+common syntax errors in EPICS programs and as an \emph{exhaustive tester} that
+can check all possible behaviors of an IOC under arbitrary conditions.
+
+\section{Setup}
+
+Our symbolic interpreter requires the following software to be installed:
+
+\begin{itemize}
+  \item \textbf{Racket Language (6.4 or higher)} \\
+      Debian package: racket \\
+      Racket is a general-purpose functional language. At this time Racket 6.4
+      has not made it to the Debian repos, so you must remove any existing
+      Racket install with \<sudo apt-get remove racket> and acquire the new
+      version manually from \url{https://www.racket-lang.org}.
+
+  \item \textbf{Rosette (2.0 or higher)} \\
+      Install instructions: \url{https://github.com/emina/rosette} \\
+      Rosette is a Racket library for general symbolic interpretation.
+      If you had installed a pre-2.0 version of Rosette, you must first remove
+      it. Find the path using \<raco link -l | fgrep -i rosette> and remove it
+      with \<raco link -r PATH>.
+\end{itemize}
+
+\noindent
+The symbolic interpreter itself does not require any special installation.
+
+\section{Usage}
+
+To make use of any symbolic interpreter features you must first create a
+symbolic version of an existing IOC:
+%
+\begin{lstlisting}[language=Bash]
+    ./bin/setup-symbolic path/to/opIOC iocBoot/iocisoconsole/st.cmd out-dir
+\end{lstlisting}
+%
+This creates a symbolic version of the IOC at \<path/to/opIOC> using the
+start command file at \<path/to/opIOC/iocBoot/iocisoconsole/st.cmd>. The
+symbolic IOC will be placed in \<out-dir>, possibly overwriting any files
+therein.
+
+Notes:
+\begin{itemize}
+\item
+  Re-run \<setup-symbolic> whenever code in the IOC changes.
+\item
+  Re-run \<setup-symbolic> whenever you upgrade to a new version of this
+  symbolic interpreter.
+\item
+  The \<setup-symbolic> script can take several minutes to run for very large
+  IOCs.
+\end{itemize}
+
+During setup some basic code linting is performed on the database. This can help
+catch typos and other common mistakes before even checking any advanced
+properties of the IOC. \autoref{tbl:setup-warnings} lists some common linting
+warnings and their meanings.
+
+\begin{table}
+  \newcommand{\hole}{\textcolor{blue}{\textbf{??}}}
+  \begin{center}
+  \begin{tabular}{p{0.33\linewidth}|p{0.66\linewidth}}
+    \textbf{Warning} & \textbf{Meaning} \\
+    \hline
+    Ignored command: \hole{}\ &
+      An unsupported command was seen in \<st.cmd>. Usually this is not a
+      problem. \\
+    truncated \hole{}\ to \hole{}\ in record \hole{}\ &
+      The symbolic interpreter does not support floating-point values
+      (see \autoref{sec:approximations}). Thus, some values appearing in record
+      fields must be truncated to integers. \\
+    not sure how to handle EPICS type \hole{}\ &
+      The symbolic interpreter tried to export the value of a NOACCESS field to
+      the symbolic IOC. This likely indicates a bug in the setup program. \\
+    in record \hole{}: cannot coerce \hole{}\ to \hole{}\ &
+      Conversions to and from strings are not fully supported. This warning
+      indicates that such a conversion is taking place in the given record, and
+      may not be modeled correctly. \\
+    in record \hole{}: PRINTF ignored &
+      The EPICS \<PRINTF> function is not handled by the symbolic interpreter.
+      This warning indicates that PRINTF was used in the given record. \\
+    unsupported record type in ToRosette.hs: \hole{}\ &
+      The given record type is only partially handled by the symbolic interpreter.
+      Its \<PACT> and \<FLNK> fields are properly modeled, but other behaviors are
+      not. \\
+    record \hole{}\ specifies `Use OCAL' but does not specify OCAL &
+      The given record is a \<calcout> record that states it should use the
+      \<OCAL> expression as output, but does not provide an \<OCAL> expression.
+      While EPICS does define behavior in this case, it may indicate a typo in
+      the record definition. \\
+    omitting duplicate record \hole{}\ &
+      After template expansion, a duplicate record with the given name was
+      discovered. This almost certainly indicates a bug in the IOC. \\
+  \end{tabular}
+  \end{center}
+  \caption{Common warnings from \<setup-symbolic>.}
+  \label{tbl:setup-warnings}
+\end{table}
+
+\subsection{Checking properties}
+
+Input properties must be written in Racket. The symbolic interpreter is invoked
+by running
+%
+\begin{lstlisting}[language=Bash]
+    ./bin/check-symbolic path/to/symbolic/ioc properties-file.rkt property-name
+\end{lstlisting}
+%
+The file \examplefile{} is an example properties file. A properties file has
+the form:
+%
+\begin{lstlisting}[language=Rosette]
+    (define (property1) ...)
+    (define (property2) ...)
+\end{lstlisting}
+%
+In general, most properties will look like:
+%
+\begin{lstlisting}[language=Rosette]
+    (define (property-name)
+      (define a (get-field "RecordName1" "FIELD1"))
+      (define b (get-field "RecordName2" "FIELD2"))
+      (process "RecordName3")
+      (define x (get-field "RecordName4" "FIELD4"))
+      (define y (get-field "RecordName5" "FIELD5"))
+      (assert (=>
+        (precondition involving a & b)
+        (postcondition involving x & y)))
+\end{lstlisting}
+%
+This form is used to verify that if some precondition holds in the database
+and ``RecordName3'' gets processed, then some postcondition will always hold
+afterwards.
+
+The tool will output either ``everything is ok!'' or ``counterexample.'' In the
+latter case, a counterexample will be generated that describes an initial
+database state where the given property does not hold.
+
+As a concrete example of an interesting property, here is \<watchDogProp> from
+\examplefile{}:
+%
+\begin{lstlisting}[language=Rosette]
+    (define (watchDogProp)
+      (define oldval (get-field "CYC:WatchdogAOK:Control" "VAL"))
+      (process "CYC:WatchdogAOK:Calc")
+      (define newval (get-field "CYC:WatchdogAOK:Control" "VAL"))
+      (assert (not (eq? (zero? oldval) (zero? newval)))))
+\end{lstlisting}
+%
+\begin{sloppypar}
+This property ensures that every time \<CYC:WatchdogAOK:Calc> gets processed,
+\<CYC:WatchdogAOK:Control.VAL> alternates between zero and some non-zero value.
+It does this by capturing \<CYC:WatchdogAOK:Control.VAL> before and after
+processing \<CYC:WatchdogAOK:Calc> and asserting that the old value is zero if
+and only if the new value is NOT zero.
+\end{sloppypar}
+
+\subsection{Interactive shell}
+
+Writing and checking and re-checking property files can be tedious. To assist
+with this task, the symbolic IOC comes equipped with some helper functions for
+interactive development. In the Racket command-line shell or in the Dr. Racket
+IDE you can get access to these functions with:
+%
+\begin{lstlisting}[language=Rosette]
+    (require (file "path/to/symbolic/ioc/ishell.rkt"))
+\end{lstlisting}
+%
+In the interactive shell, you can interact with the IOC with the following
+procedures:
+\begin{itemize}
+  \item \lstinline[mathescape]{(examine $\|record|$)} - set the record to examine
+  \item \lstinline[mathescape]{(pre $\|expr|$)} - add a new precondition
+  \item \lstinline[mathescape]{(post $\|expr|$)} - add a new postcondition
+  \item \lstinline{(status)} - show which record is currently being examined as well as the current pre and post conditions
+  \item \lstinline{(check)} - verify that whenever the preconditions hold and the current examined record gets processed, then the postconditions hold after processing
+  \item \lstinline{(freeze)} - output text that can be used as a property file to check later
+  \item \lstinline{(reset)} - reset the state of the shell (i.e.\ clear the current record and all pre and post conditions)
+\end{itemize}
+%
+% Sample interaction:
+% %
+% \begin{lstlisting}[language=Rosette]
+% \end{lstlisting}
+
+% \subsection{Concrete mode}
+
+% [[TODO]]
+
+\section{Supported EPICS Features}
+
+Our symbolic interpreter does not support all of EPICS. Instead, we have focused
+on a subset we think will be especially useful. We plan to extend this subset in
+the future.
+
+This section assumes intimate knowledge of the standard EPICS record types.%
+\footnote{\url{https://wiki-ext.aps.anl.gov/epics/index.php/RRM_3-14}}
+
+\subsection{Approximations}
+\label{sec:approximations}
+
+EPICS supports a number of data types including booleans, bitvectors of varying
+widths, double-precision floating points, fixed-length strings, fixed-length
+arrays over varying types, and several others. Our symbolic interpreter does not
+model all of these precisely. Specifically:
+\begin{enumerate}
+  \item Floats and doubles are modeled as 32- or 64-bit numbers, respectively.
+    This means that
+    decimal values, division, and other floating-point operations are not
+    modeled correctly. However, when the values in the IOC are integers,
+    this is an appropriate approximation.
+  \item All integral types are modeled exactly.
+  \item The EPICS \<MENU> and \<ENUM> types are modeled exactly.
+  \item Strings are modeled exactly.
+  \item Arrays are modeled exactly (with the above approximations on their
+    element types).
+\end{enumerate}
+
+\subsection{Record types and fields}
+
+Not all record types and fields are supported. The following records are
+supported to some degree. For all records, the behavior of \<PACT> and \<FLNK>
+is properly handled. Monitors and device support are not modeled.
+
+\begin{itemize}
+  \item \textbf{\<calc>}: fully supported
+    argument fetching and calculation (see also \autoref{sec:calc}).
+  \item \textbf{\<calcout>}: fully supported
+  \item \textbf{\<acalcout>}: fully supported
+  \item \textbf{\<scalcout>}: fully supported except for \<PRINTF> and \<SCANF>
+  \item \textbf{\<seq>}:
+    all \<DLY>$n$ fields are assumed to be 0.
+  \item \textbf{\<fanout>}:
+    \<SELM> is assumed to be ``All''.
+  \item \textbf{\<dfanout>}:
+    \<SELM> is assumed to be ``All''.
+  \item \textbf{(other)}:
+    Other records types are treated as ``dumb data'': the mutable fields listed
+    below are included, but the records themselves are treated
+    as no-ops during processing. It is still possible to make assertions about
+    the \<VAL> fields of these records, but any special behavior is ignored.
+    In particular, the \<ai>, \<ao>, \<bi>, \<bo>, \<mbbi>, \<mbbo>, and
+    \<waveform> records are in this category.
+\end{itemize}
+
+\noindent
+Only the following fields are mutable:
+
+\begin{center}
+\begin{tabular}{l|l}
+(all records) & \<PACT>, \<PROC>, \<VAL>, \<SEVR>, \<STAT> \\
+\<calc>       & \<A>..\<L> \\
+\<calcout>    & \<A>..\<L> \\
+\<acalcout>   & \<A>..\<L>, \<AA>..\<LL>, \<AVAL> \\
+\<scalcout>   & \<A>..\<L>, \<AA>..\<LL>, \<SVAL> \\
+\<seq>        & \<DO1>..\<DO9>, \<DOA> \\
+\end{tabular}
+\end{center}
+
+\noindent
+Reads of other fields will always return the \emph{default value} for the field:
+the value provided in the IOC source code (if present) or the default
+value for the field otherwise. Writes to unsupported fields are treated as
+no-ops and a warning is written to the log.
+
+\subsection{Alarm handling}
+
+Alarms are handled for the analog records \<calc>, \<calcout>, \<acalcout>,
+\<scalcout>, \<ao>, and \<ai>, but alarm hysteresis is not handled. Alarms for
+binary records such as \<bi> and \<mbbo> are not handled. Alarm propagation
+along links and the ``Maximize Severity'' link attribute are fully supported.
+
+\subsection{Calculations}
+\label{sec:calc}
+
+Not all features of the calculation records \<calc>, \<calcout>, \<acalcout>,
+and \<scalcout> are supported. Supported syntax:
+
+\begin{center}
+\begin{tabular}{ll|l}
+$x$                 & variables        & \\
+1.0                 & numeric values   & rounded to nearest integer \\
+``x''               & strings          & \\
+$f(x)$              & function calls   & partial support; see below \\
+$-x, \sim{x}, !x$   & unary operators  & \\
+$x + y, x - y, ...$ & binary operators & \\
+$x ? y : z$         & ternary operator & \\
+$x := y$            & assignment & \\
+$x; y$              & sequence & \\
+$x[y,z]$            & subarray & \\
+$x\{y,z\}$          & subarray in-place & old semantics; see below \\
+\end{tabular}
+\end{center}
+
+\noindent
+Note that in the current implementation of the symbolic interpreter, subarray
+in-place has the \emph{old} semantics where the bounds are inclusive-exclusive.
+This differs from the semantics of the plain subarray operator that has
+inclusive-inclusive bounds. This behavior changed in version 3-0 of the calc
+support library%
+\footnote{\url{http://www.aps.anl.gov/bcda/synApps/calc/calc.html}} so that both
+operators now have inclusive-inclusive bounds.
+
+Supported functions:
+
+\begin{center}
+\begin{tabular}{l|l}
+  \<MIN>, \<MAX> & \\
+  \<ABS> & \\
+  \<ARR> & \\
+  \<FLOOR> & \\
+  \<PRINTF>, \<SSCANF> & ignored \\
+  (other) & assumed to return 0 \\
+\end{tabular}
+\end{center}
+
+\section{Additional Resources}
+
+\begin{itemize}
+\item \textbf{The Rosette Guide}: \url{https://emina.github.io/rosette/rosette-guide/index.html}
+\item \textbf{EPICS Record Reference Manual (for version 3.14)}: \url{https://wiki-ext.aps.anl.gov/epics/index.php/RRM_3-14}
+\end{itemize}
+
+\end{document}

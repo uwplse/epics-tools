@@ -1,0 +1,50 @@
+--- epics___/support/configure/makeReleaseConsistent.pl	2008-08-26 11:09:18.000000000 -0700
++++ epics/support/configure/makeReleaseConsistent.pl	2017-10-04 15:25:17.803832425 -0700
+@@ -59,7 +59,7 @@
+ # Last Modified:$Date: 2008-08-26 18:09:18 $
+ 
+ # NOTE with Perl 5.6, replace the following with File::Temp.
+-use POSIX;
++use File::Temp;
+ use File::Copy;
+ use Env;
+ 
+@@ -114,16 +114,13 @@
+ {
+     open(IN, "$release_files[$itera]") or die "Cannot open $release_files[$itera]\n";
+     $rewrite = 'NO';
+-    do
+-    {
+-	$tempfile = tmpnam();
+-    } until sysopen(TEMP, $tempfile, O_RDWR | O_CREAT | O_EXCL, 0600);
++    ($temp_fh, $tempfile) = File::Temp::tempfile();
+ 
+     while ($line = <IN>)
+     {
+ 	if ($line =~ /^(#|\s*\n)/)
+ 	{
+-	    print TEMP $line;
++	    print $temp_fh $line;
+ 	}
+ 	else
+ 	{
+@@ -134,16 +131,16 @@
+ 	    if ($master_macro{$prefix} ne '' && $master_macro{$prefix} ne $post)
+ 	    {
+ 		$rewrite = 'YES';
+-		print TEMP "$prefix=$master_macro{$prefix}\n";
++		print $temp_fh "$prefix=$master_macro{$prefix}\n";
+ 	    }
+ 	    else
+ 	    {
+-		print TEMP "$line\n";
++		print $temp_fh "$line\n";
+ 	    }
+ 	}
+     }
+     
+-    close(TEMP);
++    close($temp_fh);
+     close(IN);
+     if ($rewrite eq 'YES')
+     {

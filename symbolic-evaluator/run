@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Run a symbolic IOC on a concrete IOCSH script.
+# Usage: run <dir>
+#   (where <dir> was previously constructed by the ./setup script)
+#   Reads commands from stdin.
+
+DIR="$1"
+shift 1
+exec racket "$DIR/shell.rkt" "$@"

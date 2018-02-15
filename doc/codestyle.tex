@@ -1,0 +1,30 @@
+% Set up beautiful source code listings
+
+\usepackage{listings}
+\usepackage{color}
+\usepackage[scaled]{beramono}
+\usepackage[T1]{fontenc}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+
+\newcommand{\codehighlight}[1]{\colorbox{yellow}{#1}}
+\lstset{
+    basicstyle=\small\ttfamily,
+    keywordstyle=\color{blue},
+    stringstyle=\color{mygreen},
+    commentstyle=\color{mygray},
+    numberstyle=\color{mymauve},
+    showspaces=false,
+    showlines=true,
+    showstringspaces=false,
+    frame=none,
+    escapeinside={(*@}{@*)},
+    literate=
+        {->}{{$\rightarrow$}}2
+        {<-}{{$\leftarrow$}}2
+        {\\}{{$\lambda$}}1
+}
+
+\newcommand{\code}[1]{\lstinline{#1}}
