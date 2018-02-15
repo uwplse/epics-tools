@@ -213,7 +213,4 @@ else
     check_library fl "'flex' lexer generator support library"
 fi
 
-group Misc
-check_binary tree "tree-format directory lister"
-
 [ "$err_count" -eq 0 ]
