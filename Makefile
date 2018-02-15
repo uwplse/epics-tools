@@ -41,7 +41,7 @@ ARTIFACTS=\
 
 ###############################################################################
 
-.PHONY: all artifacts dist clean clean-generated-hs
+.PHONY: all artifacts test dist clean clean-generated-hs
 
 # This rule looks weird, but it ensures that check.ok is built before any
 # artifact, even during parallel builds.
@@ -53,6 +53,9 @@ check.ok: check.sh
 	touch $@
 
 artifacts: $(ARTIFACTS)
+
+test: all
+	# TODO
 
 # Create .tar.gz distribution
 dist: scripts/dist.sh $(ARTIFACTS) doc/symbolic-interpreter.pdf
