@@ -121,6 +121,7 @@ doc/symbolic-interpreter.pdf: doc/codestyle.tex
 ###############################################################################
 
 ioc-analyzer/FieldInfo.hs: scripts/dbd2hs.py vars.sh
+	ls -lR
 	. vars.sh && ./$< "$$EPICS_BASE/dbd" "$$SUPPORT/"{asyn-4-13,calc-2-8}'/dbd' >'$@' || ( RV=$$?; rm -f '$@'; exit $$RV )
 
 ioc-analyzer/stack-setup.ok: ioc-analyzer/ioc-analyzer.cabal ioc-analyzer/stack.yaml
