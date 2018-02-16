@@ -1,5 +1,7 @@
 # EPICS Static Analysis Tools
 
+[![Build Status](https://travis-ci.org/uwplse/epics-tools.svg?branch=master)](https://travis-ci.org/uwplse/epics-tools)
+
 This repository hosts a linter and symbolic interpreter for
 [EPICS](https://epics.anl.gov/) applications.
 
