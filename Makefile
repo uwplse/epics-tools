@@ -1,6 +1,7 @@
 # Disable implicit rules
 .SUFFIXES:
 
+SHELL=bash
 BUILD_DIR=build
 
 # Find Haskell source files, but exclude generated sources. If these already
