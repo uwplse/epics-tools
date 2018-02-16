@@ -1,11 +1,19 @@
 language: c
 
+os: linux
+
 env:
   global:
     - RACKET_DIR=~/racket
     - RACKET_VERSION="6.10"
     - Z3_VERSION="4.5.0"
     - Z3_DISTRIB="z3-4.5.0-x64-ubuntu-14.04"
+
+# Caching for stack
+# See https://docs.haskellstack.org/en/stable/travis_ci/
+cache:
+  directories:
+  - $HOME/.stack
 
 before_install:
   - git clone https://github.com/greghendershott/travis-racket.git ../travis-racket
@@ -14,7 +22,11 @@ before_install:
   - unzip ${Z3_DISTRIB}.zip
   - export PATH="${RACKET_DIR}/bin:${PWD}/${Z3_DISTRIB}/bin:${PATH}"
   - raco pkg install rosette
-  - sudo apt-get install -qq python3 haskell-stack
+  - sudo apt-get install -qq python3
+# Download and unpack Stack
+  - mkdir -p ~/.local/bin
+  - export PATH=$HOME/.local/bin:$PATH
+  - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
 
 script:
   - make test
