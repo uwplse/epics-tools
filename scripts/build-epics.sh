@@ -126,4 +126,6 @@ TMP="$(mktemp)"
 echo "EPICS_HOST_ARCH=$EPICS_HOST_ARCH" | tee "$TMP"
 echo "EPICS_BASE=$EPICS_BASE" | tee -a "$TMP"
 echo "SUPPORT=$(pwd)/support" | tee -a "$TMP"
+echo "********************************************************************"
+echo "Moving $TMP to $(pwd)/../vars.sh"
 mv "$TMP" '../vars.sh'
