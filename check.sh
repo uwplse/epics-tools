@@ -178,22 +178,6 @@ check_coq_version() {
     fi
 }
 
-neutrons=$(dirname "$0")
-
-info "Found project directory: $neutrons"
-
-if [[ ! -f "$neutrons/vars.sh" ]]; then
-    cat >"$neutrons/vars.sh" <<EOF
-# Environment variables for development
-export EPICS_HOST_ARCH=
-export EPICS_BASE=
-export SUPPORT=
-EOF
-    info "Created '$neutrons/vars.sh'"
-    info "You must edit vars.sh to fill in appropriate values for each variable"
-    info "Run \`. vars.sh\` to set up the environment before working"
-fi
-
 group Haskell
 check_binary stack "Haskell Stack build system"
 
