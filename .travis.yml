@@ -21,7 +21,7 @@ before_install:
   - curl -L -O https://github.com/Z3Prover/z3/releases/download/z3-${Z3_VERSION}/${Z3_DISTRIB}.zip
   - unzip ${Z3_DISTRIB}.zip
   - export PATH="${RACKET_DIR}/bin:${PWD}/${Z3_DISTRIB}/bin:${PATH}"
-  - raco pkg install rosette
+  - raco pkg install --auto rosette
   - sudo apt-get install -qq python3
 # Download and unpack Stack
   - mkdir -p ~/.local/bin
