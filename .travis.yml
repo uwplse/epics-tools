@@ -2,12 +2,20 @@ language: c
 
 os: linux
 
+addons:
+  apt:
+    packages:
+      - gcc-4.8
+      - g++-4.8
+
 env:
   global:
     - RACKET_DIR=~/racket
     - RACKET_VERSION="7.0"
     - Z3_VERSION="4.5.0"
     - Z3_DISTRIB="z3-4.5.0-x64-ubuntu-14.04"
+    - CC="gcc-4.8"
+    - CXX="g++-4.8"
 
 # Caching for stack
 # See https://docs.haskellstack.org/en/stable/travis_ci/
