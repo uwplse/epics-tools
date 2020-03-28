@@ -26,6 +26,7 @@ fi
 if [[ ! -z "$CXX" ]]; then
   echo "Using CXX=$CXX"
   make="$make CXX='$CXX'"
+  make="$make CCC='$CXX'"
 fi
 
 # Run an arbitrary command to patch a file in-place.  The command should read
