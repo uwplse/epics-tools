@@ -191,6 +191,7 @@ check_binary python3 "Python 3 interpreter"
 group "EPICS build dependencies"
 check_binary curl "command-line file downloader"
 check_header readline/readline.h "'libreadline' development files"
+check_header EXTERN.h "'perl' development files"
 if osx_host; then
     check_library l "'flex' lexer generator support library"
 else
