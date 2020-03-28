@@ -66,6 +66,15 @@ function build-epics-base {
   # to (deliberately) allocating an array that's too large.
   quick-patch src/libCom/test/Makefile  sed -e '/epicsExceptionTest/s/^/#/'
 
+  # Fix GCC/glibc compilation error due to integer expressions passed to
+  # floating-point functions.  (Normally this is a bug, as in `isinf(1/0)`, but
+  # the EPICS authors expected automatic conversion to float for the code in
+  # question and it is safe.)  This was reported on the official mailing
+  # list [1], and the fix here is very similar to the official one.
+  #
+  # [1]: https://epics.anl.gov/tech-talk/2016/msg00734.php
+  patch -p2 -i "$SCRIPTHOME/epics-base-fixFloatExpressions.patch"
+
   if [[ -n "$EPICS_BASE_PATCH" ]]; then
     patch -p1 -i "$EPICS_BASE_PATCH"
   fi

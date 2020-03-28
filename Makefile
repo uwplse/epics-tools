@@ -62,7 +62,7 @@ test: all
 dist: scripts/dist.sh $(ARTIFACTS) doc/symbolic-interpreter.pdf
 	./scripts/dist.sh
 
-vars.sh: scripts/build-epics.sh scripts/epics-support-makeReleaseConsistent.patch
+vars.sh: scripts/build-epics.sh scripts/epics-support-makeReleaseConsistent.patch scripts/epics-base-fixFloatExpressions.patch
 	./$<
 
 clean: clean-generated-hs
