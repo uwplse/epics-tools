@@ -14,6 +14,20 @@ fi
 mkdir "$epics_dir"
 cd "$epics_dir"
 
+make="make "
+if [[ ! -z "$CPP" ]]; then
+  echo "Using CPP=$CPP"
+  make="$make CPP='$CPP'"
+fi
+if [[ ! -z "$CC" ]]; then
+  echo "Using CC=$CC"
+  make="$make CC='$CC'"
+fi
+if [[ ! -z "$CXX" ]]; then
+  echo "Using CXX=$CXX"
+  make="$make CXX='$CXX'"
+fi
+
 # Run an arbitrary command to patch a file in-place.  The command should read
 # stdin and write stdout.  This is particularly useful to work around
 # differences between GNU and OSX sed's -i flag.
@@ -57,7 +71,7 @@ function build-epics-base {
 
   # You might be tempted to add "-j8" to this line. DO NOT. The EPICS devs
   # have had a notoriously hard time making parallel builds consistent.
-  make -j1
+  $make -j1
 
   popd
 
@@ -102,8 +116,8 @@ function build-support-libs {
     patch -p1 -i "$EPICS_SUPPORT_PATCH"
   fi
 
-  make -j1 release
-  make -j1
+  $make -j1 release
+  $make -j1
 
   popd
 
