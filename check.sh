@@ -62,6 +62,7 @@ found_var_name() {
     local name=$2
     name=${name//\//_}
     name=${name//./_}
+    name=${name//-/_}
     echo -n "found_${kind}_${name}"
 }
 
