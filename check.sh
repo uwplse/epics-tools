@@ -79,6 +79,7 @@ found() {
 check_binary() {
     if ! type "$1" 2>/dev/null; then
         err "Couldn't find binary '$1' ($2)"
+        return 1
     else
         ok "Found binary '$1' ($2)"
         record binary "$1"
@@ -191,7 +192,11 @@ check_binary python3 "Python 3 interpreter"
 group "EPICS build dependencies"
 check_binary curl "command-line file downloader"
 check_header readline/readline.h "'libreadline' development files"
-check_header EXTERN.h "'perl' development files"
+if check_binary perl "Perl interpreter"; then
+    check_header "$(perl -e 'use Config; print $Config{"archlib"}')"/CORE/EXTERN.h "'perl' development files"
+else
+    err "--> we also need EXTERN.h (perl development file), but it cannot be found without Perl itself"
+fi
 if osx_host; then
     check_library l "'flex' lexer generator support library"
 else
