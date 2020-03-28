@@ -92,8 +92,10 @@ function build-epics-base {
 function build-support-libs {
 
   # NOTE 2018-02-15: old link seems dead?
+  # NOTE 2020-03-27: it's moved again!
   # curl -OLf 'http://www.aps.anl.gov/bcda/synApps/tar/synApps_5_5.tar.gz'
-  curl -OLf 'https://www3.aps.anl.gov/bcda/synApps/tar/synApps_5_5.tar.gz'
+  # curl -OLf 'https://www3.aps.anl.gov/bcda/synApps/tar/synApps_5_5.tar.gz'
+  curl -OLf 'https://epics.anl.gov/bcda/synApps/tar/synApps_5_5.tar.gz'
   tar xf synApps_5_5.tar.gz
 
   mv synApps_5_5/support .
