@@ -127,7 +127,7 @@ ioc-analyzer/FieldInfo.hs: scripts/dbd2hs.py vars.sh
 ifeq ($(NO_STACK),)
 ioc-analyzer/Main: $(HS_SRC) $(HS_GENERATED_SRC)
 	cd ioc-analyzer && stack build $(STACK_BUILD_FLAGS)
-	ln -f `find ioc-analyzer/.stack-work -type f -perm +111 -path */bin/Main | head -n1` '$@'
+	ln -f `stack --stack-yaml ioc-analyzer/stack.yaml exec -- which Main` '$@'
 else
 %.hs: %.x
 	alex $<
