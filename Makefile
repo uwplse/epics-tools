@@ -124,12 +124,8 @@ doc/symbolic-interpreter.pdf: doc/codestyle.tex
 ioc-analyzer/FieldInfo.hs: scripts/dbd2hs.py vars.sh
 	. vars.sh && ./$< "$$EPICS_BASE/dbd" "$$SUPPORT/"{asyn-4-13,calc-2-8}'/dbd' >'$@' || ( RV=$$?; rm -f '$@'; exit $$RV )
 
-ioc-analyzer/stack-setup.ok: ioc-analyzer/ioc-analyzer.cabal ioc-analyzer/stack.yaml
-	cd ioc-analyzer && stack setup
-	touch '$@'
-
 ifeq ($(NO_STACK),)
-ioc-analyzer/Main: ioc-analyzer/stack-setup.ok $(HS_SRC) $(HS_GENERATED_SRC)
+ioc-analyzer/Main: $(HS_SRC) $(HS_GENERATED_SRC)
 	cd ioc-analyzer && stack build $(STACK_BUILD_FLAGS)
 	ln -f `find ioc-analyzer/.stack-work -type f -perm +111 -path */bin/Main | head -n1` '$@'
 else
